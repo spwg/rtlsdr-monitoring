@@ -22,26 +22,72 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"fmt"
 	"os"
+	"os/exec"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
 
-
+const (
+	wantDeviceFlagName = "want_device"
+	frequencyFlagName  = "frequency"
+)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "rtlsdrmonitoring",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Short: "Monitors software defined radio",
+	Long: `rtlsdrmonitoring is intended to monitor software defined radios plugged into USB ports on a raspberry pi.
+Running this in a systemd unit enables sending email notifications when something goes wrong with the device.`,
+}
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+var watchCmd = &cobra.Command{
+	Use:     "watchusbdevices --want_device=<device name>",
+	Short:   "Watches usb devices to make sure a device is listed.",
+	Example: "watchusbdevices --want_device='Realtek Semiconductor Corp. RTL2838 DVB-T'",
+	Run: func(cmd *cobra.Command, args []string) {
+		want, err := cmd.Flags().GetString(wantDeviceFlagName)
+		if err != nil {
+			fmt.Fprintln(cmd.ErrOrStderr(), err)
+			os.Exit(1)
+		}
+		frequency, err := cmd.Flags().GetDuration(frequencyFlagName)
+		if err != nil {
+			fmt.Fprintln(cmd.ErrOrStderr(), err)
+			os.Exit(1)
+		}
+		// Create a channel to control when the check happens.
+		var ch <-chan time.Time
+		if frequency > 0 {
+			ticker := time.NewTicker(frequency)
+			defer ticker.Stop()
+			ch = ticker.C
+		} else {
+			// In oneshot mode, close the channel so the first read will return false.
+			c := make(chan time.Time)
+			close(c)
+			ch = c
+		}
+		for {
+			lsusb := exec.Command("lsusb")
+			output, err := lsusb.Output()
+			if err != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "%q error: %v\n", lsusb.String(), err)
+				os.Exit(1)
+			}
+			if !strings.Contains(string(output), want) {
+				fmt.Fprintf(cmd.ErrOrStderr(), "%q output:\n%s\n", lsusb.String(), output)
+				os.Exit(1)
+			}
+			_, ok := <-ch
+			if !ok {
+				break
+			}
+		}
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -54,15 +100,8 @@ func Execute() {
 }
 
 func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.rtlsdrmonitoring.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	watchCmd.Flags().String(wantDeviceFlagName, "", "Device name to ensure is found.")
+	_ = watchCmd.MarkFlagRequired(wantDeviceFlagName)
+	watchCmd.Flags().Duration(frequencyFlagName, 0, "How often to check. If 0 (default), just runs once.")
+	rootCmd.AddCommand(watchCmd)
 }
-
-
