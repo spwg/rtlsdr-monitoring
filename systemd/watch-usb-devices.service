@@ -1,0 +1,16 @@
+[Unit]
+Description=Watches usb devices to make sure one is present.
+Wants=watch-usb-devices.timer
+OnFailure=notify-email@%i.service
+StartLimitIntervalSec=30
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/rtlsdrmonitoring watchusbdevices --device_name='Realtek Semiconductor Corp. RTL2838 DVB-T'
+Restart=on-failure
+RestartSec=2
+StartLimitBurst=3
+
+
+[Install]
+WantedBy=multi-user.target

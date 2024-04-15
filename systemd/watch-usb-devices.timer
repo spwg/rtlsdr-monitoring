@@ -1,0 +1,10 @@
+[Unit]
+Description=Watches usb devices to make sure one is present.
+Requires=watch-usb-devices.service
+
+[Timer]
+Unit=watch-usb-devices.service
+OnCalendar=*-*-* *:*:42
+
+[Install]
+WantedBy=timers.target
