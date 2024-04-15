@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	wantDeviceFlagName = "want_device"
+	wantDeviceFlagName = "device_name"
 	frequencyFlagName  = "frequency"
 )
 
@@ -45,9 +45,9 @@ Running this in a systemd unit enables sending email notifications when somethin
 }
 
 var watchCmd = &cobra.Command{
-	Use:     "watchusbdevices --want_device=<device name>",
+	Use:     "watchusbdevices --device_name=<device name>",
 	Short:   "Watches usb devices to make sure a device is listed.",
-	Example: "watchusbdevices --want_device='Realtek Semiconductor Corp. RTL2838 DVB-T'",
+	Example: "watchusbdevices --device_name='Realtek Semiconductor Corp. RTL2838 DVB-T'",
 	Run: func(cmd *cobra.Command, args []string) {
 		want, err := cmd.Flags().GetString(wantDeviceFlagName)
 		if err != nil {
